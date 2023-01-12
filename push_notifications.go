@@ -3,7 +3,6 @@ package expogo
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -14,31 +13,50 @@ const (
 	HIGH_PRIORITY    = "high"
 )
 
+var (
+	ReceiptResponseSuccess = "ok"
+	ReceiptResponseError   = "error"
+)
+
 type Notification struct {
-	To         string `json:"to"`
-	Title      string `json:"title,omitempty"`
-	Body       string `json:"body,omitempty"`
-	TTL        int    `json:"ttl,omitempty"`
-	Expiration int    `json:"expiration,omitempty"`
-	Priority   string `json:"priority,omitempty"`
+	To         []string `json:"to"`
+	Title      string   `json:"title,omitempty"`
+	Body       string   `json:"body,omitempty"`
+	TTL        int      `json:"ttl,omitempty"`
+	Expiration int      `json:"expiration,omitempty"`
+	Badge      int      `json:"badge,omitempty"`
+	Priority   string   `json:"priority,omitempty"`
 }
 
-func (client *ExpoClient) SendPushNotification(notification *Notification) {
-	log.Println("Sending push notification")
-	log.Println(notification.To)
+type PushReceipt struct {
+	Status  string `json:"status"`
+	ID      string `json:"id"`
+	Message string `json:"message"`
+	Details struct {
+		Error string `json:"error"`
+	} `json:"details"`
+}
 
+type PushReceiptError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type PushReceiptResponse struct {
+	Data   []PushReceipt      `json:"data"`
+	Errors []PushReceiptError `json:"errors"`
+}
+
+func (client *ExpoClient) SendPushNotification(notification *Notification) *PushReceiptResponse {
 	body, err := json.Marshal(notification)
 	if err != nil {
 		log.Println(err.Error())
 	}
 
-	log.Println(string(body))
-
 	req, err := http.NewRequest("POST", client.host+client.pushPath, bytes.NewReader(body))
 	if err != nil {
 		log.Println(err.Error())
 	}
-
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.httpClient.Do(req)
@@ -48,13 +66,14 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) {
 
 	defer resp.Body.Close()
 
-	log.Println(resp.StatusCode)
-	respBody, err := ioutil.ReadAll(resp.Body)
+	var receiptResponse PushReceiptResponse
+	// Use decoder instead of marshalling
+	// since the response is a stream of JSON objects and not a JSON object in memory
+	err = json.NewDecoder(resp.Body).Decode(&receiptResponse)
 
-	log.Println(string(respBody))
+	if receiptResponse.Errors != nil {
+		log.Println(receiptResponse.Errors)
+	}
 
-	return
-}
-
-func (client *ExpoClient) SendPushNotifications() {
+	return nil
 }
