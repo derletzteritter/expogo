@@ -17,18 +17,18 @@ type ExpoConfig struct {
 }
 
 const (
-	DEFAULT_EXPO_HOST      = "https://exp.host/"
-	DEFAULT_EXPO_PUSH_PATH = "--/api/v2/push/send"
+	DefaultExpoHost     = "https://exp.host/"
+	DefaultExpoPushPath = "--/api/v2/push/send"
 )
 
-var DEFAULT_HTTP_CLIENT = &http.Client{}
+var DefaultHttpClient = &http.Client{}
 
 func NewExpoClient(config *ExpoConfig) *ExpoClient {
 	// Set default values
 	expoClient := &ExpoClient{
-		host:       DEFAULT_EXPO_HOST,
-		pushPath:   DEFAULT_EXPO_PUSH_PATH,
-		httpClient: DEFAULT_HTTP_CLIENT,
+		host:       DefaultExpoHost,
+		pushPath:   DefaultExpoPushPath,
+		httpClient: DefaultHttpClient,
 	}
 
 	// Override default values

@@ -8,14 +8,21 @@ import (
 )
 
 const (
-	DEFAULT_PRIORITY = "default"
-	NORMAL_PRIORITY  = "normal"
-	HIGH_PRIORITY    = "high"
+	DefaultPriority = "default"
+	NormalPriority  = "normal"
+	HighPriority    = "high"
 )
 
 var (
 	ReceiptResponseSuccess = "ok"
 	ReceiptResponseError   = "error"
+
+	DeviceNotRegistered = "DeviceNotRegistered"
+	InvalidCredentials  = "InvalidCredentials"
+	MessageTooBig       = "MessageTooBig"
+	MessageRateExceeded = "MessageRateExceeded"
+	InvalidData         = "InvalidData"
+	MismatchSenderId    = "MismatchSenderId"
 )
 
 type Notification struct {
@@ -43,10 +50,31 @@ type PushTicketError struct {
 }
 
 type PushTicketResponse struct {
-	Data []PushTicket `json:"data"`
+	Data   []PushTicket        `json:"data"`
+	Errors []ServerTicketError `json:"errors"`
 }
 
-func (client *ExpoClient) SendPushNotification(notification *Notification) *PushTicketResponse {
+type ServerTicketError struct {
+	Code        string `json:"code"`
+	Message     string `json:"message"`
+	IsTransient bool   `json:"isTransient"`
+}
+
+type ServerTicketErrorResponse struct {
+	Errors []ServerTicketError `json:"errors"`
+}
+
+func (e *ServerTicketErrorResponse) Error() string {
+	return e.Errors[0].Message
+}
+
+func NewServerTicketError(errors []ServerTicketError) *ServerTicketErrorResponse {
+	return &ServerTicketErrorResponse{
+		Errors: errors,
+	}
+}
+
+func (client *ExpoClient) SendPushNotification(notification *Notification) ([]PushTicketResponse, error) {
 	body, err := json.Marshal(notification)
 	if err != nil {
 		log.Println(err.Error())
@@ -54,13 +82,14 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) *Push
 
 	req, err := http.NewRequest("POST", client.host+client.pushPath, bytes.NewReader(body))
 	if err != nil {
-		log.Println(err.Error())
+		return nil, err
 	}
+
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.httpClient.Do(req)
 	if err != nil {
-		log.Println(err.Error())
+		return nil, err
 	}
 
 	var receiptResponse PushTicketResponse
@@ -69,16 +98,12 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) *Push
 	err = json.NewDecoder(resp.Body).Decode(&receiptResponse)
 	if err != nil {
 		log.Println("Failed to decode response body")
-		log.Println(err.Error())
+		return nil, err
 	}
 
-	// Check for any errors in the response, loop through them
-	// and return the first one
-	for _, ticket := range receiptResponse.Data {
-		if ticket.Status == ReceiptResponseError {
-			log.Println("Error sending push notification")
-		}
+	if len(receiptResponse.Errors) > 0 {
+		return nil, NewServerTicketError(receiptResponse.Errors)
 	}
 
-	return nil
+	return nil, nil
 }
