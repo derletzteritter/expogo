@@ -1,5 +1,9 @@
 # ExpoGO
 
+```
+go get github.com/itschip/expogo
+```
+
 ## Example
 
 ```go
