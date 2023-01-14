@@ -2,8 +2,10 @@ package expogo
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -88,6 +90,9 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) ([]Pu
 		return nil, err
 	}
 
+	req.Header.Add("Host", "exp.host")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Accept-Encoding", "gzip, deflate")
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.httpClient.Do(req)
@@ -123,5 +128,45 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) ([]Pu
 	return receiptResponse.Data, nil
 }
 
-func (client *ExpoClient) SendSinglePushNotification(notification *Notification) {
+func (client *ExpoClient) SendMultiplePushNotifications(notifications []*Notification) ([]PushTicket, error) {
+	body, err := json.Marshal(notifications)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println("BODY")
+	log.Println(string(body))
+
+	// When sending multiple notifications, we should gzip the body to reduce upload bandwidth
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(body); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", client.host+client.pushPath, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Host", "exp.host")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Accept-Encoding", "gzip, deflate")
+	req.Header.Add("Content-Encoding", "gzip")
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	log.Println("RESPONSE")
+	log.Println(string(respBody))
+
+	return nil, nil
 }

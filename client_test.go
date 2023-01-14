@@ -19,8 +19,26 @@ func TestNewClient(t *testing.T) {
 	}
 
 	for _, response := range responses {
+		fmt.Println(response.ID)
 		if response.Status == ReceiptResponseError {
 			fmt.Println(response.Details.Error)
 		}
 	}
+}
+
+func TestMultipleNotifications(t *testing.T) {
+	client := NewExpoClient(nil)
+
+	client.SendMultiplePushNotifications([]*Notification{
+		{
+			To:       []string{""},
+			Body:     "This is a test notification",
+			Priority: HighPriority,
+		},
+		{
+			To:       []string{""},
+			Body:     "This is a test another notification",
+			Priority: HighPriority,
+		},
+	})
 }
