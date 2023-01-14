@@ -3,6 +3,7 @@ package expogo
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -36,11 +37,13 @@ type Notification struct {
 }
 
 type PushTicket struct {
+	Ticket  Notification
 	Status  string `json:"status"`
 	ID      string `json:"id"`
 	Message string `json:"message"`
 	Details struct {
-		Error string `json:"error"`
+		Error         string `json:"error"`
+		ExpoPushToken string `json:"expoPushToken"`
 	} `json:"details"`
 }
 
@@ -74,10 +77,10 @@ func NewServerTicketError(errors []ServerTicketError) *ServerTicketErrorResponse
 	}
 }
 
-func (client *ExpoClient) SendPushNotification(notification *Notification) ([]PushTicketResponse, error) {
+func (client *ExpoClient) SendPushNotification(notification *Notification) ([]PushTicket, error) {
 	body, err := json.Marshal(notification)
 	if err != nil {
-		log.Println(err.Error())
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", client.host+client.pushPath, bytes.NewReader(body))
@@ -92,6 +95,9 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) ([]Pu
 		return nil, err
 	}
 
+	/*respBody, err := ioutil.ReadAll(resp.Body)
+	log.Println(string(respBody)) */
+
 	var receiptResponse PushTicketResponse
 	// Use decoder instead of marshalling
 	// since the response is a stream of JSON objects and not a JSON object in memory
@@ -105,5 +111,17 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) ([]Pu
 		return nil, NewServerTicketError(receiptResponse.Errors)
 	}
 
-	return nil, nil
+	if len(receiptResponse.Data) == 0 {
+		return nil, fmt.Errorf("No tickets returned")
+	}
+
+	for i := range receiptResponse.Data {
+		// Return tickets and the actual ticket data
+		receiptResponse.Data[i].Ticket = *notification
+	}
+
+	return receiptResponse.Data, nil
+}
+
+func (client *ExpoClient) SendSinglePushNotification(notification *Notification) {
 }
