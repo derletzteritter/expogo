@@ -28,7 +28,7 @@ type Notification struct {
 	Priority   string   `json:"priority,omitempty"`
 }
 
-type PushReceipt struct {
+type PushTicket struct {
 	Status  string `json:"status"`
 	ID      string `json:"id"`
 	Message string `json:"message"`
@@ -37,17 +37,16 @@ type PushReceipt struct {
 	} `json:"details"`
 }
 
-type PushReceiptError struct {
+type PushTicketError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-type PushReceiptResponse struct {
-	Data   []PushReceipt      `json:"data"`
-	Errors []PushReceiptError `json:"errors"`
+type PushTicketResponse struct {
+	Data []PushTicket `json:"data"`
 }
 
-func (client *ExpoClient) SendPushNotification(notification *Notification) *PushReceiptResponse {
+func (client *ExpoClient) SendPushNotification(notification *Notification) *PushTicketResponse {
 	body, err := json.Marshal(notification)
 	if err != nil {
 		log.Println(err.Error())
@@ -64,15 +63,21 @@ func (client *ExpoClient) SendPushNotification(notification *Notification) *Push
 		log.Println(err.Error())
 	}
 
-	defer resp.Body.Close()
-
-	var receiptResponse PushReceiptResponse
+	var receiptResponse PushTicketResponse
 	// Use decoder instead of marshalling
 	// since the response is a stream of JSON objects and not a JSON object in memory
 	err = json.NewDecoder(resp.Body).Decode(&receiptResponse)
+	if err != nil {
+		log.Println("Failed to decode response body")
+		log.Println(err.Error())
+	}
 
-	if receiptResponse.Errors != nil {
-		log.Println(receiptResponse.Errors)
+	// Check for any errors in the response, loop through them
+	// and return the first one
+	for _, ticket := range receiptResponse.Data {
+		if ticket.Status == ReceiptResponseError {
+			log.Println("Error sending push notification")
+		}
 	}
 
 	return nil
